@@ -1,0 +1,269 @@
+<?xml version="1.0" ?>
+<project name="StockMarketPort" default="info" basedir=".">
+
+
+       <!-- run in root project dir -->
+       <!-- ant -f <thisfilename> <targetname> -->
+
+        <property environment="env"   />
+
+
+
+	<property name="src.dir" value="src" />
+
+	<property name="build.dir" value="build/classes" />
+        <property name = "build.test.dir" value="build/classes" />
+
+        <property name ="dist.dir" value ="dist" />
+        <property name ="jarname" value="testantjar.jar" />
+
+        <property name= "build.instrumented.dir" value="build/instrumented" />
+
+
+        <property name="persistence" value="persistence" />
+        <property name="business" value="business" />
+
+
+        <property name="test.src.dir" value="src" />
+        <property name="jar.dir" value="lib" />
+
+ 
+        <property name="build.testresults.dir" value="build/testresults" />
+        <property name="build.codecoverage.dir" value="build/codecoverage" />    
+        <property name="build.testxml.dir" value ="build/testxml" />
+
+
+	<path id="compile.classpath">
+		<fileset dir="${dist.dir}" includes="*.jar" />	
+	</path>
+
+	<path id="test.compile.classpath">
+		<path refid="compile.classpath"/>
+
+               <!-- build/classes/packagename=classes/*.class -->
+		<pathelement location ="${build.dir}" />
+	</path>
+
+        <path id="test.classpath">
+		<path refid ="test.compile.classpath" />
+                <!-- test dir :    build/test/packagename=classes/*.class -->
+		<pathelement location="${build.test.dir}" />
+	</path>
+
+        <path id ="jar.classpath">
+             <fileset dir="${jar.dir}" includes="*.jar" />
+        </path>
+
+
+	<target name="info">
+		<echo>USAGE:</echo>
+		<echo></echo>
+		<echo>To run junit tests with code coverage, run:</echo>
+		<echo>	ant alltests.with.cobertura</echo>
+		<echo>		Cobertura Results: build/codecoverage/index.html</echo>
+		<echo>		Test Results: build/testresults/*.xml</echo>
+		<echo></echo>
+		<echo>To run junit tests without code coverage, run:</echo>
+		<echo>	ant alltests</echo> 
+		<echo>		Test Results: build/testresults/*.txt</echo>
+	</target>
+
+
+
+	<target name="init">
+		<mkdir dir="${build.dir}" />
+		<mkdir dir="${dist.dir}" />
+                <mkdir dir = "${build.test.dir}" />
+                <mkdir dir= "${build.instrumented.dir}" />
+                <mkdir dir="${build.testresults.dir}" />
+                <mkdir dir="${build.codecoverage.dir}" />
+                <mkdir dir ="${build.testxml.dir}" />
+                <mkdir dir ="lib" />
+	</target>
+
+	<target name="compile" depends="init" description="Compile Java code">
+
+               <!-- Do not include package name in the dest and src dirs -->
+		<javac srcdir="${src.dir}" destdir="${build.dir}"  includeantruntime="false"  debug="true"
+
+                >
+                       <classpath refid="jar.classpath" />
+
+                </javac>
+	</target>
+
+	<target name="jar" depends="compile" >
+		<jar destfile="${dist.dir}/${jarname}" basedir="${build.dir}" >
+			<manifest>
+
+				<attribute name="Main-Class" value="classes.NewClass"/>
+			</manifest>
+		</jar>
+	</target>
+
+        
+
+
+	<target name="run" depends="jar">
+		<java jar="${dist.dir}/${jarname}" fork="true" />
+	</target>
+
+        <target name="compile-tests" depends="jar">
+		<javac srcdir="${test.src.dir}"
+                       destdir="${build.test.dir}"
+		       includeantruntime="false"
+                >
+
+	               <classpath refid="test.compile.classpath" />
+                       <classpath refid="jar.classpath" />
+		</javac>
+
+        </target>
+
+
+        <target name="testpersistence" depends="compile">
+		<junit printsummary="true" haltonfailure="true">
+	        <classpath refid="test.classpath" />
+                <classpath refid="jar.classpath" />
+                <formatter type="plain" />
+                <batchtest fork="yes" todir="${build.testresults.dir}">
+                   <fileset dir="${test.src.dir}">
+                      <include name="test/persistence/*.java"/>
+                   </fileset>
+                   
+                </batchtest>
+                </junit>
+        </target>
+        <target name="testbusiness" depends="compile">
+		<junit printsummary="true" haltonfailure="true">
+	        <classpath refid="test.classpath" />
+                <classpath refid="jar.classpath" />
+                <formatter type="plain" />
+                <batchtest fork="yes" todir="${build.testresults.dir}">
+                   <fileset dir="${test.src.dir}">
+                      <include name="test/business/*.java"/>
+                   </fileset>
+                </batchtest>
+                </junit>
+        </target>
+
+
+        <target name="alltests" depends="testpersistence,testbusiness">
+        </target>
+
+        <target name="main" depends="run" />	
+	
+        <target name="tests.persistence.with.cobertura" depends="compile,cobertura.init">
+		<junit printsummary="true" haltonfailure="true">
+
+                        <!-- coberatura data file -->
+                        <sysproperty key="net.sourceforge.cobertura.datafile"
+				file="${basedir}/cobertura.ser" />
+
+
+      
+                        <!-- need the instrumented.classpath -->
+                        <classpath>
+                            <path location="${build.instrumented.dir}" />
+                        </classpath>
+
+	        	<classpath refid="test.classpath" />
+                	<classpath refid="jar.classpath" />
+
+
+                	<formatter type="xml" />
+
+                	<batchtest fork="yes" todir="${build.testresults.dir}" >
+
+
+                   		<fileset dir="${test.src.dir}">
+                      			<include name="test/persistence/*XML*.java"/>
+                   		</fileset>
+                   
+                	</batchtest>
+                </junit>
+        </target>
+
+        <target name="clean.cobertura">
+                <delete file="${basedir}/cobertura.ser" />
+                <delete>
+			<fileset  dir="${build.codecoverage.dir}" includes="*" />
+                        <fileset dir="${build.instrumented.dir}" includes="**/*" />
+                      
+               </delete>
+        </target>
+
+        <target name="tests.business.with.cobertura" depends="compile,cobertura.init">
+		<junit printsummary="true" haltonfailure="true">
+
+                        <!-- coberatura data file -->
+                        <sysproperty key="net.sourceforge.cobertura.datafile"
+				file="${basedir}/cobertura.ser" />
+
+
+      
+                        <!-- need the instrumented.classpath -->
+                        <classpath>
+                            <path location="${build.instrumented.dir}" />
+                        </classpath>
+
+	        	<classpath refid="test.classpath" />
+                	<classpath refid="jar.classpath" />
+
+
+                	<formatter type="xml" />
+
+                	<batchtest fork="yes" todir="${build.testresults.dir}" >
+
+
+                   		<fileset dir="${test.src.dir}">
+                      			<include name="test/business/*.java"/>
+                   		</fileset>
+                   
+                	</batchtest>
+                </junit>
+        </target>
+
+
+        <!-- Make COBERTURA available to ant, ie. the cobertura-instrument tag -->
+        <taskdef classpathref="jar.classpath" resource="tasks.properties" />
+
+        <target name="cobertura.init" depends="compile, clean.cobertura"
+		description="Create instrument classes for cobertura">
+
+       
+                <cobertura-instrument todir="${build.instrumented.dir}">
+
+                        <ignore regex="org.apache.log4j.*" />
+                	<fileset dir = "${build.dir}" >
+
+                                <include name = "uml/edu/ScrapStockData.class" />
+                                <include name = "uml/edu/SymbolSearch.class" />
+                                <include name = "uml/edu/YahooFinanceConnection.class" />
+                                <include name = "uml/edu/HistoryReportForm.class" />
+               		 </fileset>
+                </cobertura-instrument>
+                
+        </target>
+
+
+
+       
+        <!-- manual generation of cobertura reports, in case one of the tests just barfs, but you want to see reports anyway -->    
+        <target name="just.generate.cobertura.reports">
+            <cobertura-report format="html" datafile="${basedir}/cobertura.ser" destdir="${build.codecoverage.dir}" srcdir="${src.dir}" />
+        </target>
+
+        <target name="alltests.with.cobertura" depends="cobertura.init,tests.persistence.with.cobertura,tests.business.with.cobertura,just.generate.cobertura.reports">
+        </target>
+
+        <target name ="war" depends="compile">
+        	<war destfile ="${dist.dir}/ScrapStockDataJSP.war" webxml="web/WEB-INF/web.xml">
+			<fileset dir="web" />
+			<classes dir="${build.dir}" />
+        	</war>
+        </target>
+
+</project>
+
+
